@@ -1,0 +1,169 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Structure and Docker Environment",
+        "description": "Initialize the project repository with Express.js and configure Docker Compose for development environment",
+        "details": "1. Create a new Node.js project with npm init\n2. Install Express.js and other core dependencies\n3. Set up project folder structure (routes, controllers, models, services)\n4. Create Dockerfile for the Express application\n5. Create docker-compose.yml file that includes:\n   - Node.js application service\n   - MongoDB service\n   - Network configuration\n6. Configure environment variables for development\n7. Create basic server.js file with Express initialization\n8. Add npm scripts for development and production\n\nExample docker-compose.yml:\n```yaml\nversion: '3'\nservices:\n  app:\n    build: .\n    ports:\n      - \"3000:3000\"\n    environment:\n      - MONGODB_URI=mongodb://mongo:27017/url-shortener\n    depends_on:\n      - mongo\n    volumes:\n      - ./:/app\n      - /app/node_modules\n  mongo:\n    image: mongo:latest\n    ports:\n      - \"27017:27017\"\n    volumes:\n      - mongo-data:/data/db\nvolumes:\n  mongo-data:\n```",
+        "testStrategy": "1. Verify Docker Compose setup works by running 'docker-compose up'\n2. Ensure MongoDB connection is established\n3. Verify Express server starts without errors\n4. Test that the development environment hot-reloads on code changes",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Design MongoDB Schema and Database Connection",
+        "description": "Create the MongoDB schema for URL mapping and establish database connection",
+        "details": "1. Install mongoose as ODM for MongoDB\n2. Create a database connection module\n3. Implement the URL schema as specified in the PRD:\n\n```javascript\n// models/url.js\nconst mongoose = require('mongoose');\n\nconst urlSchema = new mongoose.Schema({\n  originalUrl: {\n    type: String,\n    required: true,\n    index: true\n  },\n  shortCode: {\n    type: String,\n    required: true,\n    unique: true,\n    index: true\n  },\n  createdAt: {\n    type: Date,\n    default: Date.now\n  },\n  updatedAt: {\n    type: Date,\n    default: Date.now\n  }\n});\n\n// Update the updatedAt field on save\nurlSchema.pre('save', function(next) {\n  this.updatedAt = Date.now();\n  next();\n});\n\nmodule.exports = mongoose.model('Url', urlSchema);\n```\n\n4. Create a database connection utility:\n\n```javascript\n// utils/database.js\nconst mongoose = require('mongoose');\n\nconst connectDB = async () => {\n  try {\n    const conn = await mongoose.connect(process.env.MONGODB_URI, {\n      useNewUrlParser: true,\n      useUnifiedTopology: true,\n    });\n    console.log(`MongoDB Connected: ${conn.connection.host}`);\n  } catch (error) {\n    console.error(`Error: ${error.message}`);\n    process.exit(1);\n  }\n};\n\nmodule.exports = connectDB;\n```",
+        "testStrategy": "1. Write unit tests for the URL model\n2. Test database connection with both valid and invalid connection strings\n3. Verify indexes are created correctly\n4. Test the updatedAt field is properly updated on document save",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement URL Shortening Service",
+        "description": "Create a service to generate unique short codes for URLs and handle the mapping logic",
+        "details": "1. Create a utility for generating random short codes\n2. Implement the URL shortening service with logic to check for existing URLs\n\n```javascript\n// utils/codeGenerator.js\nconst crypto = require('crypto');\n\nconst generateShortCode = (length = 6) => {\n  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n  const randomBytes = crypto.randomBytes(length);\n  let result = '';\n  \n  for (let i = 0; i < length; i++) {\n    const randomIndex = randomBytes[i] % characters.length;\n    result += characters.charAt(randomIndex);\n  }\n  \n  return result;\n};\n\nmodule.exports = { generateShortCode };\n```\n\n```javascript\n// services/urlService.js\nconst Url = require('../models/url');\nconst { generateShortCode } = require('../utils/codeGenerator');\n\nclass UrlService {\n  constructor(baseUrl) {\n    this.baseUrl = baseUrl; // e.g., 'http://short.ly'\n  }\n\n  async shortenUrl(originalUrl) {\n    // Check if URL already exists in database\n    const existingUrl = await Url.findOne({ originalUrl });\n    \n    if (existingUrl) {\n      return {\n        shortUrl: `${this.baseUrl}/${existingUrl.shortCode}`,\n        originalUrl: existingUrl.originalUrl\n      };\n    }\n    \n    // Generate a new short code\n    let shortCode;\n    let isUnique = false;\n    \n    // Ensure the generated code is unique\n    while (!isUnique) {\n      shortCode = generateShortCode();\n      const existingCode = await Url.findOne({ shortCode });\n      if (!existingCode) {\n        isUnique = true;\n      }\n    }\n    \n    // Create new URL mapping\n    const newUrl = new Url({\n      originalUrl,\n      shortCode\n    });\n    \n    await newUrl.save();\n    \n    return {\n      shortUrl: `${this.baseUrl}/${shortCode}`,\n      originalUrl\n    };\n  }\n\n  async getOriginalUrl(shortCode) {\n    const url = await Url.findOne({ shortCode });\n    if (!url) {\n      return null;\n    }\n    return url.originalUrl;\n  }\n}\n\nmodule.exports = UrlService;\n```",
+        "testStrategy": "1. Unit test the short code generator for randomness and length\n2. Test URL shortening with new URLs and existing URLs\n3. Verify that duplicate short codes are not generated\n4. Test retrieval of original URLs from short codes\n5. Test handling of non-existent short codes",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement URL Validation and Security Measures",
+        "description": "Create utilities to validate URLs and implement security measures to prevent malicious inputs",
+        "details": "1. Create a URL validation utility\n2. Implement security measures to prevent XSS and other attacks\n\n```javascript\n// utils/urlValidator.js\nconst isValidUrl = (url) => {\n  try {\n    const parsedUrl = new URL(url);\n    return ['http:', 'https:'].includes(parsedUrl.protocol);\n  } catch (error) {\n    return false;\n  }\n};\n\nconst sanitizeUrl = (url) => {\n  // Basic sanitization to prevent XSS\n  return url.replace(/[<>\"']/g, '');\n};\n\nmodule.exports = { isValidUrl, sanitizeUrl };\n```\n\n```javascript\n// middleware/security.js\nconst { isValidUrl, sanitizeUrl } = require('../utils/urlValidator');\n\nconst validateUrlInput = (req, res, next) => {\n  const { url } = req.body;\n  \n  if (!url) {\n    return res.status(400).json({ error: 'URL is required' });\n  }\n  \n  const sanitizedUrl = sanitizeUrl(url);\n  \n  if (!isValidUrl(sanitizedUrl)) {\n    return res.status(400).json({ error: 'Invalid URL format' });\n  }\n  \n  // Replace the original URL with the sanitized one\n  req.body.url = sanitizedUrl;\n  next();\n};\n\nmodule.exports = { validateUrlInput };\n```",
+        "testStrategy": "1. Test URL validation with valid and invalid URLs\n2. Test URL sanitization with potentially malicious inputs\n3. Verify that the middleware correctly rejects invalid URLs\n4. Test handling of edge cases (empty strings, non-string inputs, etc.)\n5. Perform security testing with common XSS payloads",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement API Controllers for URL Shortening",
+        "description": "Create controllers to handle the API endpoints for URL shortening and redirection",
+        "details": "1. Implement controller for shortening URLs\n2. Implement controller for URL redirection\n3. Implement health check controller\n\n```javascript\n// controllers/urlController.js\nconst UrlService = require('../services/urlService');\n\nclass UrlController {\n  constructor() {\n    this.urlService = new UrlService(process.env.BASE_URL || 'http://short.ly');\n  }\n\n  shortenUrl = async (req, res) => {\n    try {\n      const { url } = req.body;\n      const result = await this.urlService.shortenUrl(url);\n      return res.status(200).json(result);\n    } catch (error) {\n      console.error('Error shortening URL:', error);\n      return res.status(500).json({ error: 'Server error while shortening URL' });\n    }\n  };\n\n  redirectToOriginalUrl = async (req, res) => {\n    try {\n      const { shortCode } = req.params;\n      const originalUrl = await this.urlService.getOriginalUrl(shortCode);\n      \n      if (!originalUrl) {\n        return res.status(404).json({ error: 'Short URL not found' });\n      }\n      \n      return res.redirect(302, originalUrl);\n    } catch (error) {\n      console.error('Error redirecting URL:', error);\n      return res.status(500).json({ error: 'Server error while redirecting' });\n    }\n  };\n\n  healthCheck = (req, res) => {\n    return res.status(200).json({\n      status: 'ok',\n      timestamp: new Date().toISOString()\n    });\n  };\n}\n\nmodule.exports = new UrlController();\n```",
+        "testStrategy": "1. Unit test each controller method with mocked service layer\n2. Test error handling for each endpoint\n3. Verify correct status codes are returned\n4. Test the health check endpoint returns the expected format\n5. Integration test the controllers with the actual service",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement API Routes",
+        "description": "Set up Express routes for the URL shortener API endpoints",
+        "details": "1. Create route definitions for all API endpoints\n2. Connect routes to controllers\n3. Apply middleware for validation\n\n```javascript\n// routes/api.js\nconst express = require('express');\nconst router = express.Router();\nconst urlController = require('../controllers/urlController');\nconst { validateUrlInput } = require('../middleware/security');\n\n// Shorten URL endpoint\nrouter.post('/shorten', validateUrlInput, urlController.shortenUrl);\n\n// Health check endpoint\nrouter.get('/health', urlController.healthCheck);\n\nmodule.exports = router;\n```\n\n```javascript\n// routes/index.js\nconst express = require('express');\nconst router = express.Router();\nconst urlController = require('../controllers/urlController');\nconst apiRoutes = require('./api');\n\n// API routes\nrouter.use('/api', apiRoutes);\n\n// Redirect route for short URLs\nrouter.get('/:shortCode', urlController.redirectToOriginalUrl);\n\nmodule.exports = router;\n```\n\n```javascript\n// app.js\nconst express = require('express');\nconst routes = require('./routes');\nconst connectDB = require('./utils/database');\n\n// Connect to MongoDB\nconnectDB();\n\nconst app = express();\n\n// Middleware\napp.use(express.json());\n\n// Routes\napp.use('/', routes);\n\nmodule.exports = app;\n```",
+        "testStrategy": "1. Test route registration\n2. Verify routes are connected to the correct controller methods\n3. Test middleware application\n4. Integration test the complete request flow\n5. Test route parameters handling",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Swagger Documentation",
+        "description": "Set up Swagger UI for API documentation and testing",
+        "details": "1. Install swagger-ui-express and swagger-jsdoc\n2. Create Swagger configuration\n3. Document API endpoints with JSDoc comments\n\n```javascript\n// utils/swagger.js\nconst swaggerJsdoc = require('swagger-jsdoc');\n\nconst options = {\n  definition: {\n    openapi: '3.0.0',\n    info: {\n      title: 'URL Shortener API',\n      version: '1.0.0',\n      description: 'A simple URL shortener API',\n    },\n    servers: [\n      {\n        url: 'http://localhost:3000',\n        description: 'Development server',\n      },\n    ],\n  },\n  apis: ['./routes/*.js', './controllers/*.js'], // Path to the API docs\n};\n\nconst specs = swaggerJsdoc(options);\nmodule.exports = specs;\n```\n\n```javascript\n// Add JSDoc comments to controllers/urlController.js\n/**\n * @swagger\n * /api/shorten:\n *   post:\n *     summary: Create a short URL\n *     tags: [URLs]\n *     requestBody:\n *       required: true\n *       content:\n *         application/json:\n *           schema:\n *             type: object\n *             required:\n *               - url\n *             properties:\n *               url:\n *                 type: string\n *                 description: The original URL to shorten\n *     responses:\n *       200:\n *         description: Short URL created successfully\n *         content:\n *           application/json:\n *             schema:\n *               type: object\n *               properties:\n *                 shortUrl:\n *                   type: string\n *                   description: The generated short URL\n *                 originalUrl:\n *                   type: string\n *                   description: The original URL\n */\n\n/**\n * @swagger\n * /{shortCode}:\n *   get:\n *     summary: Redirect to the original URL\n *     tags: [URLs]\n *     parameters:\n *       - in: path\n *         name: shortCode\n *         schema:\n *           type: string\n *         required: true\n *         description: Short code of the URL\n *     responses:\n *       302:\n *         description: Redirect to the original URL\n *       404:\n *         description: Short URL not found\n */\n\n/**\n * @swagger\n * /api/health:\n *   get:\n *     summary: Health check endpoint\n *     tags: [System]\n *     responses:\n *       200:\n *         description: System is healthy\n *         content:\n *           application/json:\n *             schema:\n *               type: object\n *               properties:\n *                 status:\n *                   type: string\n *                   example: ok\n *                 timestamp:\n *                   type: string\n *                   format: date-time\n */\n```\n\n```javascript\n// Add to app.js\nconst swaggerUi = require('swagger-ui-express');\nconst swaggerSpecs = require('./utils/swagger');\n\n// Swagger UI\napp.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));\n```",
+        "testStrategy": "1. Verify Swagger UI is accessible at /api-docs\n2. Test that all API endpoints are properly documented\n3. Verify that the documentation is accurate and matches the implementation\n4. Test the 'Try it out' functionality in Swagger UI\n5. Ensure all parameters, request bodies, and responses are correctly documented",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement Error Handling Middleware",
+        "description": "Create global error handling middleware to standardize error responses",
+        "details": "1. Create custom error classes\n2. Implement global error handling middleware\n3. Update controllers to use custom errors\n\n```javascript\n// utils/errors.js\nclass AppError extends Error {\n  constructor(message, statusCode) {\n    super(message);\n    this.statusCode = statusCode;\n    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';\n    this.isOperational = true;\n\n    Error.captureStackTrace(this, this.constructor);\n  }\n}\n\nclass NotFoundError extends AppError {\n  constructor(message = 'Resource not found') {\n    super(message, 404);\n  }\n}\n\nclass ValidationError extends AppError {\n  constructor(message = 'Validation failed') {\n    super(message, 400);\n  }\n}\n\nclass ServerError extends AppError {\n  constructor(message = 'Internal server error') {\n    super(message, 500);\n  }\n}\n\nmodule.exports = {\n  AppError,\n  NotFoundError,\n  ValidationError,\n  ServerError\n};\n```\n\n```javascript\n// middleware/errorHandler.js\nconst { AppError } = require('../utils/errors');\n\nconst errorHandler = (err, req, res, next) => {\n  // Default to 500 server error\n  err.statusCode = err.statusCode || 500;\n  err.status = err.status || 'error';\n\n  // Development vs Production error responses\n  if (process.env.NODE_ENV === 'development') {\n    return res.status(err.statusCode).json({\n      status: err.status,\n      error: err,\n      message: err.message,\n      stack: err.stack\n    });\n  } else {\n    // Operational, trusted error: send message to client\n    if (err.isOperational) {\n      return res.status(err.statusCode).json({\n        status: err.status,\n        message: err.message\n      });\n    }\n    // Programming or other unknown error: don't leak error details\n    console.error('ERROR 💥', err);\n    return res.status(500).json({\n      status: 'error',\n      message: 'Something went wrong'\n    });\n  }\n};\n\nmodule.exports = errorHandler;\n```\n\n```javascript\n// Update app.js to include error handler\nconst errorHandler = require('./middleware/errorHandler');\n\n// Routes\napp.use('/', routes);\n\n// Error handling middleware (should be after routes)\napp.use(errorHandler);\n\n// 404 handler for undefined routes\napp.all('*', (req, res, next) => {\n  next(new NotFoundError(`Can't find ${req.originalUrl} on this server!`));\n});\n```",
+        "testStrategy": "1. Test error handling with various error types\n2. Verify correct status codes are returned for different errors\n3. Test development vs production error responses\n4. Verify stack traces are only included in development mode\n5. Test 404 handling for undefined routes",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Request Rate Limiting",
+        "description": "Add rate limiting to prevent API abuse and ensure system performance",
+        "details": "1. Install express-rate-limit\n2. Configure rate limiting for API endpoints\n3. Implement different rate limits for different endpoints\n\n```javascript\n// middleware/rateLimiter.js\nconst rateLimit = require('express-rate-limit');\n\nconst apiLimiter = rateLimit({\n  windowMs: 15 * 60 * 1000, // 15 minutes\n  max: 100, // limit each IP to 100 requests per windowMs\n  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers\n  legacyHeaders: false, // Disable the `X-RateLimit-*` headers\n  message: {\n    status: 'error',\n    message: 'Too many requests, please try again later.'\n  }\n});\n\nconst shortenLimiter = rateLimit({\n  windowMs: 60 * 1000, // 1 minute\n  max: 10, // limit each IP to 10 requests per minute\n  standardHeaders: true,\n  legacyHeaders: false,\n  message: {\n    status: 'error',\n    message: 'Too many URL shortening requests, please try again later.'\n  }\n});\n\nmodule.exports = {\n  apiLimiter,\n  shortenLimiter\n};\n```\n\n```javascript\n// Update routes/api.js\nconst { apiLimiter, shortenLimiter } = require('../middleware/rateLimiter');\n\n// Apply rate limiting to all API routes\nrouter.use(apiLimiter);\n\n// Apply more strict rate limiting to the shorten endpoint\nrouter.post('/shorten', shortenLimiter, validateUrlInput, urlController.shortenUrl);\n```",
+        "testStrategy": "1. Test rate limiting by making multiple requests in quick succession\n2. Verify rate limit headers are returned in responses\n3. Test that requests are blocked after exceeding the limit\n4. Verify the rate limit message is returned\n5. Test that different endpoints have different rate limits",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Performance Optimization",
+        "description": "Optimize the application to meet the performance requirements of handling 100 requests per second",
+        "details": "1. Implement database indexing for frequently queried fields\n2. Add caching for URL lookups\n3. Optimize MongoDB queries\n\n```javascript\n// Install redis for caching\n// npm install redis\n\n// utils/cache.js\nconst redis = require('redis');\n\nlet redisClient;\n\nconst connectRedis = async () => {\n  redisClient = redis.createClient({\n    url: process.env.REDIS_URL || 'redis://localhost:6379'\n  });\n\n  redisClient.on('error', (error) => {\n    console.error(`Redis Error: ${error}`);\n  });\n\n  await redisClient.connect();\n  console.log('Redis connected');\n};\n\nconst getCache = async (key) => {\n  try {\n    const value = await redisClient.get(key);\n    return value ? JSON.parse(value) : null;\n  } catch (error) {\n    console.error(`Cache get error: ${error}`);\n    return null;\n  }\n};\n\nconst setCache = async (key, value, expireSeconds = 3600) => {\n  try {\n    await redisClient.set(key, JSON.stringify(value), {\n      EX: expireSeconds\n    });\n    return true;\n  } catch (error) {\n    console.error(`Cache set error: ${error}`);\n    return false;\n  }\n};\n\nmodule.exports = {\n  connectRedis,\n  getCache,\n  setCache\n};\n```\n\n```javascript\n// Update services/urlService.js to use caching\nconst { getCache, setCache } = require('../utils/cache');\n\n// In getOriginalUrl method\nasync getOriginalUrl(shortCode) {\n  // Try to get from cache first\n  const cacheKey = `shortcode:${shortCode}`;\n  const cachedUrl = await getCache(cacheKey);\n  \n  if (cachedUrl) {\n    return cachedUrl;\n  }\n  \n  // If not in cache, get from database\n  const url = await Url.findOne({ shortCode });\n  if (!url) {\n    return null;\n  }\n  \n  // Store in cache for future requests\n  await setCache(cacheKey, url.originalUrl);\n  \n  return url.originalUrl;\n}\n```\n\n```javascript\n// Update docker-compose.yml to include Redis\nservices:\n  # ... existing services\n  redis:\n    image: redis:alpine\n    ports:\n      - \"6379:6379\"\n    volumes:\n      - redis-data:/data\nvolumes:\n  # ... existing volumes\n  redis-data:\n```",
+        "testStrategy": "1. Benchmark URL redirection performance with and without caching\n2. Test system under load with tools like Apache Bench or k6\n3. Verify the system can handle 100 requests per second\n4. Monitor database query performance\n5. Test cache hit/miss scenarios",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement Input Validation and Sanitization",
+        "description": "Enhance security by implementing comprehensive input validation and sanitization",
+        "details": "1. Install validation libraries (joi or express-validator)\n2. Create validation schemas for all inputs\n3. Implement middleware for request validation\n\n```javascript\n// Install joi\n// npm install joi\n\n// middleware/validator.js\nconst Joi = require('joi');\n\nconst schemas = {\n  shortenUrl: Joi.object({\n    url: Joi.string().uri().required().max(2000)\n  })\n};\n\nconst validateRequest = (schema) => {\n  return (req, res, next) => {\n    const { error } = schema.validate(req.body);\n    \n    if (error) {\n      return res.status(400).json({\n        status: 'error',\n        message: error.details.map(detail => detail.message).join(', ')\n      });\n    }\n    \n    next();\n  };\n};\n\nmodule.exports = {\n  validateRequest,\n  schemas\n};\n```\n\n```javascript\n// Update routes/api.js\nconst { validateRequest, schemas } = require('../middleware/validator');\n\n// Replace the simple validateUrlInput with more comprehensive validation\nrouter.post('/shorten', \n  validateRequest(schemas.shortenUrl),\n  urlController.shortenUrl\n);\n```\n\n```javascript\n// utils/sanitizer.js\nconst sanitizeUrl = (url) => {\n  // More comprehensive sanitization\n  // Remove control characters and whitespace\n  let sanitized = url.replace(/[\\x00-\\x1F\\x7F-\\x9F\\s]/g, '');\n  \n  // Encode special characters to prevent XSS\n  sanitized = encodeURI(sanitized);\n  \n  return sanitized;\n};\n\nmodule.exports = { sanitizeUrl };\n```",
+        "testStrategy": "1. Test validation with various valid and invalid inputs\n2. Verify that malformed requests are rejected with appropriate error messages\n3. Test sanitization with potentially malicious inputs\n4. Verify that the sanitized output is safe but preserves the original URL functionality\n5. Test with edge cases like very long URLs, URLs with special characters, etc.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Implement Logging and Monitoring",
+        "description": "Set up logging and monitoring to track system performance and errors",
+        "details": "1. Install logging libraries (winston)\n2. Configure structured logging\n3. Implement request logging middleware\n4. Set up basic monitoring for API uptime\n\n```javascript\n// Install winston\n// npm install winston\n\n// utils/logger.js\nconst winston = require('winston');\n\nconst logger = winston.createLogger({\n  level: process.env.LOG_LEVEL || 'info',\n  format: winston.format.combine(\n    winston.format.timestamp(),\n    winston.format.json()\n  ),\n  defaultMeta: { service: 'url-shortener' },\n  transports: [\n    new winston.transports.Console({\n      format: winston.format.combine(\n        winston.format.colorize(),\n        winston.format.simple()\n      )\n    }),\n    new winston.transports.File({ filename: 'error.log', level: 'error' }),\n    new winston.transports.File({ filename: 'combined.log' })\n  ]\n});\n\nmodule.exports = logger;\n```\n\n```javascript\n// middleware/requestLogger.js\nconst logger = require('../utils/logger');\n\nconst requestLogger = (req, res, next) => {\n  const start = Date.now();\n  \n  // Log when the request completes\n  res.on('finish', () => {\n    const duration = Date.now() - start;\n    logger.info({\n      method: req.method,\n      url: req.originalUrl,\n      status: res.statusCode,\n      duration: `${duration}ms`,\n      ip: req.ip\n    });\n  });\n  \n  next();\n};\n\nmodule.exports = requestLogger;\n```\n\n```javascript\n// Update app.js\nconst requestLogger = require('./middleware/requestLogger');\nconst logger = require('./utils/logger');\n\n// Add request logging middleware\napp.use(requestLogger);\n\n// Update error handler to use logger\napp.use((err, req, res, next) => {\n  logger.error({\n    message: err.message,\n    stack: err.stack,\n    status: err.statusCode || 500\n  });\n  \n  // Rest of error handler...\n});\n```",
+        "testStrategy": "1. Verify logs are correctly written to files and console\n2. Test that request details are logged\n3. Verify error logging captures all necessary information\n4. Test log rotation and management\n5. Verify that sensitive information is not logged",
+        "priority": "medium",
+        "dependencies": [
+          6,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-18T15:50:41.591Z",
+      "updated": "2025-08-18T15:55:43.910Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
