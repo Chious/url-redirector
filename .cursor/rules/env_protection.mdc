@@ -1,0 +1,87 @@
+---
+description: Protect .env files from being accessed via grep and other commands
+globs: **/*
+alwaysApply: true
+---
+
+# Environment File Protection Rules
+
+## **Environment File Access Restrictions**
+
+- **Forbidden Operations:**
+
+  - ❌ **Never use `grep .env*`** in terminal commands (except .env.example)
+  - ❌ **Never use `cat .env*`** in terminal commands (except .env.example)
+  - ❌ **Never use `ls | grep .env*`** in terminal commands (except .env.example)
+  - ❌ **Never read `.env*` files directly** using read_file tool (except .env.example)
+  - ❌ **Never display contents of `.env*` files** in any form (except .env.example)
+  - ❌ **Forbidden files**: `.env`, `.env.local`, `.env.development`, `.env.production`, `.env.test`, `.env.staging`, etc.
+
+- **Allowed Operations:**
+  - ✅ **ONLY `.env.example` is allowed** for reading, writing, and terminal operations
+  - ✅ **`grep .env.example`** is allowed and encouraged
+  - ✅ **`cat .env.example`** is allowed for template reference
+  - ✅ **Reading `.env.example` files** using read_file tool is allowed
+  - ✅ **Creating/updating `.env.example` files** for templates
+
+## **Security Rationale**
+
+- **Sensitive Data Protection**: All `.env*` files (except `.env.example`) contain API keys, passwords, and secret tokens
+- **Accidental Exposure**: Prevent accidentally displaying sensitive information in logs or outputs
+- **Best Practice**: Use **ONLY** `.env.example` files as templates without sensitive data
+- **Comprehensive Protection**: Covers all environment variants (`.env`, `.env.local`, `.env.development`, `.env.production`, `.env.test`, `.env.staging`, etc.)
+
+## **Alternative Commands**
+
+Instead of prohibited commands, use these alternatives:
+
+```bash
+# ❌ Don't do this - ALL .env* files except .env.example
+grep something .env
+cat .env
+cat .env.local
+cat .env.development
+cat .env.production
+cat .env.test
+
+# ✅ Do this instead - ONLY .env.example is allowed
+grep something .env.example
+cat .env.example
+read .env.example
+
+# ✅ Check if .env files exist without showing content
+ls -la | grep -E "\.env\.example"
+[ -f .env ] && echo ".env exists" || echo ".env not found"
+[ -f .env.local ] && echo ".env.local exists" || echo ".env.local not found"
+```
+
+## **Environment Variable Checking**
+
+- **For Docker containers**: Use `docker inspect` or `docker exec env` commands
+- **For environment validation**: Create verification scripts that check existence without displaying values
+- **For troubleshooting**: Use application logs rather than directly reading env files
+
+## **Exception Handling**
+
+If `.env` file access is absolutely necessary for debugging:
+
+1. Ask user permission explicitly
+2. Explain the security implications
+3. Suggest safer alternatives first
+4. Only proceed with explicit user consent
+
+## **Implementation Notes**
+
+This rule applies to:
+
+- **All `.env*` files** (`.env`, `.env.local`, `.env.development`, `.env.production`, `.env.test`, `.env.staging`, etc.)
+- **Exception**: Only `.env.example` is allowed for read/write operations
+- Terminal command executions
+- File reading operations
+- Any grep/search operations
+- Log output filtering
+- File creation and modification
+
+**File Pattern Protection**: `\.env(?!\.example$).*` - This regex protects all `.env*` files except `.env.example`
+
+The goal is to maintain security while allowing development workflows to continue smoothly with template files.

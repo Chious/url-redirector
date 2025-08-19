@@ -88,6 +88,7 @@ npm run docker:down   # Stop services
 
 - **Backend**: Express.js
 - **Database**: MongoDB
+- **ORM**: Prisma
 - **Containerization**: Docker & Docker Compose
 - **Documentation**: Swagger UI (coming soon)
 
@@ -121,6 +122,34 @@ Environment variables in `.env`:
 - `SHORT_CODE_LENGTH` - Length of generated short codes
 - `RATE_LIMIT_*` - Rate limiting configuration
 
+## Database Setup
+
+1. 環境變數請參考 `.env.example` 檔案，並複製一份到 `.env` 檔案
+
+```bash
+cp .env.example .env
+```
+
+```bash
+MONGO_INITDB_ROOT_USERNAME= #Mongo帳號
+MONGO_INITDB_ROOT_PASSWORD= #Mongo密碼
+```
+
+2. 啟動 MongoDB 資料庫
+
+```bash
+docker compose up mongo
+```
+
+3. Database 管理介面，目前有配置 `mongo-express` 服務，可以透過 `http://localhost:8081` 進入，相關環境變數配置同樣請參考 `.env.example` 檔案
+
+```bash
+MONGO_INITDB_ROOT_USERNAME= #Mongo帳號
+MONGO_INITDB_ROOT_PASSWORD= #Mongo密碼
+ME_CONFIG_BASICAUTH_USERNAME=  # 後台登入帳號
+ME_CONFIG_BASICAUTH_PASSWORD=  # 後台登入密碼
+```
+
 ## ⚡ Next Steps
 
 1. Implement URL shortening logic
@@ -132,3 +161,7 @@ Environment variables in `.env`:
 ## 📝 License
 
 MIT
+
+## 其他
+
+PRD: [prd.md](prd.md)
