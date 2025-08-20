@@ -1,10 +1,20 @@
-const express = require("express");
-const { body, param, validationResult } = require("express-validator");
+import express, { Request, Response } from "express";
+import { body, param, validationResult } from "express-validator";
+import {
+  IUrl,
+  ShortenUrlRequest,
+  ShortenUrlResponse,
+  PaginationQuery,
+  PaginatedResponse,
+  ErrorResponse,
+  TypedRequest,
+  TypedResponse,
+} from "../types";
 
 const router = express.Router();
 
-// 假資料儲存（在實際專案中會使用 MongoDB）
-let urlDatabase = [
+// Mock database storage (in real project, this would use MongoDB)
+let urlDatabase: IUrl[] = [
   {
     id: "1",
     originalUrl: "https://github.com/nodejs/node",
@@ -35,8 +45,8 @@ let urlDatabase = [
   },
 ];
 
-// 生成隨機短碼的輔助函數
-const generateShortCode = () => {
+// Helper function to generate random short codes
+const generateShortCode = (): string => {
   const chars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
@@ -154,35 +164,40 @@ router.post(
       .isLength({ min: 10, max: 2048 })
       .withMessage("URL must be between 10 and 2048 characters"),
   ],
-  (req, res) => {
+  (
+    req: TypedRequest<ShortenUrlRequest>,
+    res: TypedResponse<ShortenUrlResponse | ErrorResponse>
+  ): void => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "Validation failed",
         details: errors.array(),
       });
+      return;
     }
 
     const { url: originalUrl } = req.body;
 
-    // 檢查 URL 是否已存在
+    // Check if URL already exists
     const existingUrl = urlDatabase.find(
       (item) => item.originalUrl === originalUrl
     );
     if (existingUrl) {
-      return res.status(409).json({
+      res.status(409).json({
         message: "URL already exists",
         data: existingUrl,
-      });
+      } as any);
+      return;
     }
 
-    // 生成新的短碼（確保唯一性）
-    let shortCode;
+    // Generate new short code (ensure uniqueness)
+    let shortCode: string;
     do {
       shortCode = generateShortCode();
     } while (urlDatabase.find((item) => item.shortCode === shortCode));
 
-    const newUrl = {
+    const newUrl: IUrl = {
       id: (urlDatabase.length + 1).toString(),
       originalUrl,
       shortCode,
@@ -231,35 +246,40 @@ router.get(
       .matches(/^[a-zA-Z0-9]+$/)
       .withMessage("Short code can only contain letters and numbers"),
   ],
-  (req, res) => {
+  (
+    req: TypedRequest<never, never, { shortCode: string }>,
+    res: TypedResponse<ErrorResponse>
+  ): void => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "Invalid short code format",
         details: errors.array(),
       });
+      return;
     }
 
     const { shortCode } = req.params;
     const urlItem = urlDatabase.find((item) => item.shortCode === shortCode);
 
     if (!urlItem) {
-      return res.status(404).json({
+      res.status(404).json({
         error: "Short URL not found",
         message: `The short code '${shortCode}' does not exist or has expired`,
       });
+      return;
     }
 
-    // 增加點擊計數
+    // Increment click count
     urlItem.clickCount += 1;
     urlItem.updatedAt = new Date();
 
-    // 記錄訪問日誌
+    // Log access
     console.log(
       `📊 Redirect: ${shortCode} -> ${urlItem.originalUrl} (${urlItem.clickCount} clicks)`
     );
 
-    // 302 重定向到原始 URL
+    // 302 redirect to original URL
     res.redirect(302, urlItem.originalUrl);
   }
 );
@@ -309,25 +329,34 @@ router.get(
  *                     hasMore:
  *                       type: boolean
  */
-router.get("/api/urls", (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 10, 100);
-  const offset = parseInt(req.query.offset) || 0;
+router.get(
+  "/api/urls",
+  (
+    req: TypedRequest<never, PaginationQuery>,
+    res: TypedResponse<PaginatedResponse<IUrl>>
+  ) => {
+    const limit = Math.min(parseInt(req.query.limit || "10"), 100);
+    const offset = parseInt(req.query.offset || "0");
 
-  const total = urlDatabase.length;
-  const data = urlDatabase
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(offset, offset + limit);
+    const total = urlDatabase.length;
+    const data = urlDatabase
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(offset, offset + limit);
 
-  res.json({
-    data,
-    pagination: {
-      total,
-      limit,
-      offset,
-      hasMore: offset + limit < total,
-    },
-  });
-});
+    res.json({
+      data,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + limit < total,
+      },
+    });
+  }
+);
 
 /**
  * @swagger
@@ -357,19 +386,26 @@ router.get("/api/urls", (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/api/urls/:shortCode", (req, res) => {
-  const { shortCode } = req.params;
-  const urlItem = urlDatabase.find((item) => item.shortCode === shortCode);
+router.get(
+  "/api/urls/:shortCode",
+  (
+    req: TypedRequest<never, never, { shortCode: string }>,
+    res: TypedResponse<IUrl | ErrorResponse>
+  ): void => {
+    const { shortCode } = req.params;
+    const urlItem = urlDatabase.find((item) => item.shortCode === shortCode);
 
-  if (!urlItem) {
-    return res.status(404).json({
-      error: "Short URL not found",
-      message: `The short code '${shortCode}' does not exist`,
-    });
+    if (!urlItem) {
+      res.status(404).json({
+        error: "Short URL not found",
+        message: `The short code '${shortCode}' does not exist`,
+      });
+      return;
+    }
+
+    res.json(urlItem);
   }
-
-  res.json(urlItem);
-});
+);
 
 /**
  * @swagger
@@ -404,25 +440,32 @@ router.get("/api/urls/:shortCode", (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete("/api/urls/:shortCode", (req, res) => {
-  const { shortCode } = req.params;
-  const urlIndex = urlDatabase.findIndex(
-    (item) => item.shortCode === shortCode
-  );
+router.delete(
+  "/api/urls/:shortCode",
+  (
+    req: TypedRequest<never, never, { shortCode: string }>,
+    res: TypedResponse<{ message: string; deletedUrl: IUrl } | ErrorResponse>
+  ): void => {
+    const { shortCode } = req.params;
+    const urlIndex = urlDatabase.findIndex(
+      (item) => item.shortCode === shortCode
+    );
 
-  if (urlIndex === -1) {
-    return res.status(404).json({
-      error: "Short URL not found",
-      message: `The short code '${shortCode}' does not exist`,
+    if (urlIndex === -1) {
+      res.status(404).json({
+        error: "Short URL not found",
+        message: `The short code '${shortCode}' does not exist`,
+      });
+      return;
+    }
+
+    const deletedUrl = urlDatabase.splice(urlIndex, 1)[0]!;
+
+    res.json({
+      message: "URL deleted successfully",
+      deletedUrl,
     });
   }
+);
 
-  const deletedUrl = urlDatabase.splice(urlIndex, 1)[0];
-
-  res.json({
-    message: "URL deleted successfully",
-    deletedUrl,
-  });
-});
-
-module.exports = router;
+export default router;

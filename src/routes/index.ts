@@ -1,6 +1,7 @@
-const express = require("express");
-const urlRoutes = require("./urls");
-const testRoutes = require("./test");
+import express, { Request, Response } from "express";
+import urlRoutes from "./urls";
+import testRoutes from "./test";
+import { ApiInfoResponse } from "../types";
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ router.use("/", urlRoutes);
 router.use("/", testRoutes);
 
 // API info endpoint
-router.get("/api", (req, res) => {
+router.get("/api", (req: Request, res: Response<ApiInfoResponse>) => {
   res.json({
     name: "URL Redirector API",
     version: "1.0.0",
@@ -26,4 +27,4 @@ router.get("/api", (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

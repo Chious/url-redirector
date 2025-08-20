@@ -1,5 +1,11 @@
-const express = require("express");
+import express, { Request, Response } from "express";
+
 const router = express.Router();
+
+interface TestResponse {
+  message: string;
+  timestamp: string;
+}
 
 /**
  * @swagger
@@ -23,11 +29,11 @@ const router = express.Router();
  *                   type: string
  *                   format: date-time
  */
-router.get("/api/test", (req, res) => {
+router.get("/api/test", (req: Request, res: Response<TestResponse>) => {
   res.json({
     message: "Swagger UI is working!",
     timestamp: new Date().toISOString(),
   });
 });
 
-module.exports = router;
+export default router;

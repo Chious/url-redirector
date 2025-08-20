@@ -1,26 +1,37 @@
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
-const routes = require("./src/routes");
-const initSwagger = require("./src/config/swagger");
-require("dotenv").config();
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import dotenv from "dotenv";
+import routes from "./routes/index";
+import initSwagger from "./config/swagger";
+import {
+  HealthResponse,
+  ApiResponse,
+  ErrorResponse,
+  RateLimitConfig,
+} from "./types";
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT: number = parseInt(process.env["PORT"] || "3000");
 
 // Security middleware
 app.use(helmet());
 app.use(cors());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+// Rate limiting configuration
+const rateLimitConfig: RateLimitConfig = {
+  windowMs: parseInt(process.env["RATE_LIMIT_WINDOW_MS"] || "900000"), // 15 minutes
+  max: parseInt(process.env["RATE_LIMIT_MAX_REQUESTS"] || "100"), // limit each IP to 100 requests per windowMs
   message: {
     error: "Too many requests from this IP, please try again later.",
   },
-});
+};
+
+const limiter = rateLimit(rateLimitConfig);
 
 // Swagger UI setup
 initSwagger(app);
@@ -46,7 +57,7 @@ app.use(express.urlencoded({ extended: true }));
  *             schema:
  *               $ref: '#/components/schemas/HealthStatus'
  */
-app.get("/health", (req, res) => {
+app.get("/health", (req: Request, res: Response<HealthResponse>) => {
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -76,7 +87,7 @@ app.get("/health", (req, res) => {
  *                   type: string
  *                   format: date-time
  */
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (req: Request, res: Response<HealthResponse>) => {
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -98,7 +109,7 @@ app.get("/api/health", (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiInfo'
  */
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response<ApiResponse>) => {
   res.json({
     message: "URL Shortener API",
     version: "1.0.0",
@@ -123,7 +134,7 @@ app.get("/", (req, res) => {
 app.use("/", routes);
 
 // 404 handler
-app.use("*", (req, res) => {
+app.use("*", (req: Request, res: Response<ErrorResponse>) => {
   res.status(404).json({
     error: "Route not found",
     path: req.originalUrl,
@@ -131,22 +142,29 @@ app.use("*", (req, res) => {
 });
 
 // Error handling middleware
-app.use((error, req, res, next) => {
-  console.error("Error:", error);
-  res.status(500).json({
-    error: "Internal server error",
-    message:
-      process.env.NODE_ENV === "development"
-        ? error.message
-        : "Something went wrong",
-  });
-});
+app.use(
+  (
+    error: Error,
+    req: Request,
+    res: Response<ErrorResponse>,
+    next: NextFunction
+  ) => {
+    console.error("Error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      message:
+        process.env["NODE_ENV"] === "development"
+          ? error.message
+          : "Something went wrong",
+    });
+  }
+);
 
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`🔧 Environment: ${process.env["NODE_ENV"] || "development"}`);
 });
 
-module.exports = app;
+export default app;

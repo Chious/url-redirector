@@ -2,10 +2,13 @@
   "name": "url-redirector",
   "version": "1.0.0",
   "description": "A URL shortener service with Express.js and MongoDB",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon src/server.ts",
+    "dev:watch": "tsc --watch",
+    "clean": "rimraf dist",
     "docker:up": "docker compose up",
     "docker:down": "docker compose down",
     "docker:build": "docker compose up --build"
@@ -30,6 +33,14 @@
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.5",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.6",
+    "ts-node": "^10.9.2",
+    "rimraf": "^5.0.5"
   }
 }

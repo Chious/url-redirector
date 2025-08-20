@@ -7,11 +7,17 @@ WORKDIR /app
 # Copy package.json and package-lock.json (if available)
 COPY package*.json ./
 
-# Install dependencies - use npm install if package-lock.json doesn't exist
-RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+# Install all dependencies (including dev dependencies for TypeScript compilation)
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copy the rest of the application code
 COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs

@@ -1,8 +1,41 @@
-const swaggerJsdoc = require("swagger-jsdoc");
-const { serve, setup } = require("swagger-ui-express");
+import swaggerJsdoc from "swagger-jsdoc";
+import { serve, setup } from "swagger-ui-express";
+import { Express } from "express";
 
-const initSwagger = (app) => {
-  const options = {
+interface SwaggerOptions {
+  definition: {
+    openapi: string;
+    info: {
+      title: string;
+      version: string;
+      description: string;
+      contact: {
+        name: string;
+        email: string;
+      };
+      license: {
+        name: string;
+        url: string;
+      };
+    };
+    servers: Array<{
+      url: string;
+      description: string;
+    }>;
+    tags: Array<{
+      name: string;
+      description: string;
+    }>;
+    components: {
+      schemas: Record<string, any>;
+      responses: Record<string, any>;
+    };
+  };
+  apis: string[];
+}
+
+export const initSwagger = (app: Express): void => {
+  const options: SwaggerOptions = {
     definition: {
       openapi: "3.0.0",
       info: {
@@ -25,7 +58,7 @@ const initSwagger = (app) => {
         4. **管理網址**: 查看、刪除短網址
 
         ## 技術棧
-        - Express.js + MongoDB
+        - Express.js + MongoDB + TypeScript
         - Docker 容器化部署
         - 輸入驗證與安全防護
       `,
@@ -176,7 +209,7 @@ const initSwagger = (app) => {
         },
       },
     },
-    apis: ["src/routes/*.js", "server.js"],
+    apis: ["src/routes/*.ts", "src/server.ts"],
   };
 
   const specs = swaggerJsdoc(options);
@@ -184,4 +217,4 @@ const initSwagger = (app) => {
   app.use("/api-docs", serve, setup(specs));
 };
 
-module.exports = initSwagger;
+export default initSwagger;

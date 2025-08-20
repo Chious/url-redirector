@@ -2,7 +2,7 @@
 
 **備註**：這個是一個 toy project，用來練閒短網址產生器相關的專案。
 
-A URL shortener service built with Express.js, MongoDB, and Docker.
+A URL shortener service built with Express.js, TypeScript, MongoDB, and Docker.
 
 ## 🚀 Quick Start
 
@@ -66,7 +66,15 @@ docker compose up
 
 ```bash
 npm install
-npm run dev
+npm run build    # Compile TypeScript
+npm run dev      # Start development server with TypeScript
+```
+
+**TypeScript development with watch mode:**
+
+```bash
+npm run dev:watch  # Compile TypeScript in watch mode
+npm run dev        # Start development server (in another terminal)
 ```
 
 **Docker development:**
@@ -78,35 +86,43 @@ npm run docker:down   # Stop services
 
 ## 📋 Available Scripts
 
-- `npm start` - Start production server
-- `npm run dev` - Start development server with nodemon
+- `npm run build` - Compile TypeScript to JavaScript
+- `npm start` - Start production server (requires build)
+- `npm run dev` - Start development server with TypeScript
+- `npm run dev:watch` - Compile TypeScript in watch mode
+- `npm run clean` - Remove build directory
 - `npm run docker:up` - Start Docker Compose services
 - `npm run docker:down` - Stop Docker Compose services
 - `npm run docker:build` - Build and start Docker services
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Express.js
+- **Backend**: Express.js + TypeScript
 - **Database**: MongoDB
-- **ORM**: Prisma
 - **Containerization**: Docker & Docker Compose
-- **Documentation**: Swagger UI (coming soon)
+- **Documentation**: Swagger UI
+- **Security**: Helmet, CORS, Rate Limiting
+- **Validation**: Express Validator
 
 ## 📁 Project Structure
 
 ```
 url-redirector/
 ├── src/
+│   ├── types/           # TypeScript type definitions
 │   ├── controllers/     # Request handlers
-│   ├── routes/         # API routes
+│   ├── routes/         # API routes (TypeScript)
 │   ├── models/         # Database models
 │   ├── services/       # Business logic
 │   ├── middleware/     # Custom middleware
 │   ├── utils/          # Helper functions
-│   └── config/         # Configuration files
+│   ├── config/         # Configuration files (TypeScript)
+│   └── server.ts       # Main application file (TypeScript)
+├── dist/               # Compiled JavaScript (build output)
 ├── scripts/
 │   └── mongo-init.js   # MongoDB initialization
-├── server.js           # Main application file
+├── tsconfig.json       # TypeScript configuration
+├── nodemon.json        # Nodemon configuration
 ├── Dockerfile          # Docker configuration
 └── docker-compose.yml  # Multi-container setup
 ```
