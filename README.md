@@ -4,6 +4,20 @@
 
 A URL shortener service built with Express.js, TypeScript, MongoDB, and Docker.
 
+## Tech Stack
+
+- **Backend**: Express.js + TypeScript
+- **ORM**: Prisma
+- **Database**: MongoDB
+- **Containerization**: Docker & Docker Compose
+- **Documentation**: Swagger UI
+- **Security**: Helmet, CORS, Rate Limiting
+- **Validation**: Express Validator
+
+## Spec & API Endpoints
+
+TD;LR
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -62,6 +76,13 @@ docker compose up
 
 ### Development
 
+前置步驟：起動 MongoDB 資料庫、配置環境變數
+
+```bash
+docker compose up mongo # 起動 MongoDB 資料庫
+cp .env.example .env # 複製一份環境變數檔案
+```
+
 **Local development:**
 
 ```bash
@@ -94,15 +115,6 @@ npm run docker:down   # Stop services
 - `npm run docker:up` - Start Docker Compose services
 - `npm run docker:down` - Stop Docker Compose services
 - `npm run docker:build` - Build and start Docker services
-
-## 🛠️ Tech Stack
-
-- **Backend**: Express.js + TypeScript
-- **Database**: MongoDB
-- **Containerization**: Docker & Docker Compose
-- **Documentation**: Swagger UI
-- **Security**: Helmet, CORS, Rate Limiting
-- **Validation**: Express Validator
 
 ## 📁 Project Structure
 
@@ -166,6 +178,15 @@ ME_CONFIG_BASICAUTH_USERNAME=  # 後台登入帳號
 ME_CONFIG_BASICAUTH_PASSWORD=  # 後台登入密碼
 ```
 
+### 備案 2：資料庫預覽 UI -- Prisma Studio
+
+```bash
+npx prisma generate // 產生 prisma 客戶端，供 DB 存取
+npm run db:studio // 啟動 prisma studio，可以透過這個介面瀏覽資料庫
+```
+
+詳細設定請參考 [PRISMA_SETUP.md](PRISMA_SETUP.md)，裡面包含 schema 及 Prisma 相關指令說明。
+
 ## ⚡ Next Steps
 
 1. Implement URL shortening logic
@@ -178,6 +199,7 @@ ME_CONFIG_BASICAUTH_PASSWORD=  # 後台登入密碼
 
 MIT
 
-## 其他
+## 📚 Reference
 
 PRD: [prd.md](prd.md)
+Prisma Setup: [PRISMA_SETUP.md](PRISMA_SETUP.md)

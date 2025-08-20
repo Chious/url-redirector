@@ -1,23 +1,30 @@
 # Use official Node.js runtime as base image
 FROM node:18-alpine
 
+# Install OpenSSL (required for Prisma on Alpine)
+RUN apk add --no-cache openssl
+
 # Set working directory in container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies for TypeScript compilation)
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# Copy Prisma schema (needed for prisma generate)
+COPY prisma ./prisma/
+
+# Install dependencies
+RUN npm ci
 
 # Copy the rest of the application code
 COPY . .
 
+# Generate Prisma client
+RUN npx prisma generate
+
 # Build TypeScript
 RUN npm run build
 
-# Remove dev dependencies after build
-RUN npm prune --omit=dev
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs
@@ -27,12 +34,12 @@ RUN adduser -S nodejs -u 1001
 RUN chown -R nodejs:nodejs /app
 USER nodejs
 
-# Expose port 3000
-EXPOSE 3000
+ARG PORT=3000
+EXPOSE ${PORT}
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node health-check.js
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD node dist/utils/health-check.js
 
 # Start the application
 CMD ["npm", "start"]

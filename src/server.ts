@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import routes from "./routes/index";
 import initSwagger from "./config/swagger";
+import HealthService from "./services/healthService";
 import {
   HealthResponse,
   ApiResponse,
@@ -46,35 +47,82 @@ app.use(express.urlencoded({ extended: true }));
  * @swagger
  * /health:
  *   get:
- *     summary: Health check endpoint
- *     description: Check if the server is running properly
+ *     summary: Comprehensive health check endpoint
+ *     description: Check if the server and database are functioning properly
  *     tags: [Health]
  *     responses:
  *       200:
- *         description: Server is healthy
+ *         description: Server and database are healthy
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/HealthStatus'
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [ok, error]
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 uptime:
+ *                   type: number
+ *                   description: Server uptime in seconds
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       enum: [connected, disconnected, error]
+ *                     responseTime:
+ *                       type: number
+ *                       description: Database response time in milliseconds
+ *                     lastChecked:
+ *                       type: string
+ *                       format: date-time
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     totalUrls:
+ *                       type: number
+ *                       description: Total number of URLs in database
+ *                     version:
+ *                       type: string
+ *       500:
+ *         description: Server or database is unhealthy
  */
-app.get("/health", (req: Request, res: Response<HealthResponse>) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+app.get("/health", async (req: Request, res: Response) => {
+  try {
+    const healthResult = await HealthService.performHealthCheck();
+
+    // Return appropriate status code based on health check result
+    const statusCode = healthResult.status === "ok" ? 200 : 500;
+
+    res.status(statusCode).json(healthResult);
+  } catch (error) {
+    console.error("Health check endpoint error:", error);
+    res.status(500).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: {
+        status: "error",
+        lastChecked: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Health check failed",
+      },
+    });
+  }
 });
 
 /**
  * @swagger
  * /api/health:
  *   get:
- *     summary: API health check
- *     description: Check if the API is functioning correctly
+ *     summary: Lightweight API health check
+ *     description: Quick health check with database ping
  *     tags: [Health]
  *     responses:
  *       200:
- *         description: API is healthy
+ *         description: API and database are responsive
  *         content:
  *           application/json:
  *             schema:
@@ -86,12 +134,32 @@ app.get("/health", (req: Request, res: Response<HealthResponse>) => {
  *                 timestamp:
  *                   type: string
  *                   format: date-time
+ *                 database:
+ *                   type: string
+ *                   example: "connected"
+ *       500:
+ *         description: Database is not accessible
  */
-app.get("/api/health", (req: Request, res: Response<HealthResponse>) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-  });
+app.get("/api/health", async (req: Request, res: Response) => {
+  try {
+    const dbPing = await HealthService.pingDatabase();
+    const status = dbPing ? "ok" : "error";
+    const statusCode = dbPing ? 200 : 500;
+
+    res.status(statusCode).json({
+      status,
+      timestamp: new Date().toISOString(),
+      database: dbPing ? "connected" : "disconnected",
+    });
+  } catch (error) {
+    console.error("API health check error:", error);
+    res.status(500).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      database: "error",
+      error: error instanceof Error ? error.message : "Health check failed",
+    });
+  }
 });
 
 /**

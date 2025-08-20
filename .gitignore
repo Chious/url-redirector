@@ -47,3 +47,7 @@ coverage/
 
 # Optional eslint cache
 .eslintcache
+
+# Generated Prisma client
+generated/
+src/generated/

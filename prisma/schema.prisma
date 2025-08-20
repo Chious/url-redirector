@@ -1,0 +1,23 @@
+// Prisma schema for URL shortener service
+// Compatible with MongoDB
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/prisma_client"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+model Url {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  originalUrl String   @unique
+  shortCode   String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("urls")
+}

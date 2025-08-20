@@ -1,5 +1,4 @@
 services:
-  # Express.js Application
   app:
     build: .
     ports:
@@ -13,7 +12,6 @@ services:
     depends_on:
       - mongo
     volumes:
-      - ./:/app
       - /app/node_modules
     restart: unless-stopped
     networks:
