@@ -10,26 +10,67 @@ services:
       - BASE_URL=${BASE_URL}
       - SWAGGER_ENABLED=${SWAGGER_ENABLED}
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+      mongo-setup:
+        condition: service_completed_successfully
     volumes:
       - /app/node_modules
+      - ./src:/app/src
+      - ./public:/app/public
     restart: unless-stopped
     networks:
       - app-network
 
-  # MongoDB Database
   mongo:
     image: mongo:7.0
     ports:
       - "27017:27017"
     environment:
       - MONGO_INITDB_DATABASE=url-shortener
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    # 添加 replica set 配置
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     volumes:
       - mongo-data:/data/db
-      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # 新增：初始化 replica set 的服務
+  mongo-setup:
+    image: mongo:7.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    command: >
+      bash -c "
+        echo 'Waiting for MongoDB to be ready...'
+        sleep 5
+        echo 'Initializing replica set...'
+        mongosh --host mongo:27017 --eval '
+          try {
+            rs.status()
+            print(\"Replica set already initialized\")
+          } catch(e) {
+            print(\"Initializing replica set...\")
+            rs.initiate({
+              _id: \"rs0\",
+              members: [
+                { _id: 0, host: \"mongo:27017\" }
+              ]
+            })
+            print(\"Replica set initialized successfully\")
+          }
+        '
+        echo 'Replica set setup completed'
+      "
     networks:
       - app-network
 
@@ -41,12 +82,13 @@ services:
     environment:
       - ME_CONFIG_MONGODB_SERVER=mongo
       - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_INITDB_ROOT_USERNAME}
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
-      - ME_CONFIG_BASICAUTH_USERNAME=${ME_CONFIG_BASICAUTH_USERNAME}
-      - ME_CONFIG_BASICAUTH_PASSWORD=${ME_CONFIG_BASICAUTH_PASSWORD}
+      - ME_CONFIG_BASICAUTH_USERNAME=${ME_CONFIG_BASICAUTH_USERNAME:-admin}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${ME_CONFIG_BASICAUTH_PASSWORD:-admin}
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+      mongo-setup:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - app-network
