@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <!-- CSP 由 helmet 在伺服器端設定，這裡不需要 meta tag -->
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+        font-weight: 300;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 40px;
+        font-size: 1.1em;
+      }
+
+      .input-section {
+        margin-bottom: 30px;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      input[type="url"] {
+        flex: 1;
+        padding: 15px 20px;
+        border: 2px solid #e1e5e9;
+        border-radius: 10px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+      }
+
+      input[type="url"]:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .btn {
+        padding: 15px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .result-section {
+        display: none;
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 30px;
+        margin-top: 30px;
+      }
+
+      .result-item {
+        margin-bottom: 20px;
+      }
+
+      .result-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .result-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+      }
+
+      .result-value {
+        background: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid #e1e5e9;
+        font-family: monospace;
+        font-size: 14px;
+        word-break: break-all;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .result-value a {
+        color: #667eea;
+        text-decoration: underline;
+        transition: color 0.2s;
+      }
+
+      .result-value a:hover {
+        color: #764ba2;
+        text-decoration: underline;
+      }
+
+      .copy-btn {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 10px;
+        transition: background-color 0.2s;
+      }
+
+      .copy-btn:hover {
+        background: #218838;
+      }
+
+      .qr-code {
+        text-align: center;
+        margin-top: 20px;
+      }
+
+      .qr-code img {
+        max-width: 200px;
+        height: auto;
+        border: 1px solid #e1e5e9;
+        border-radius: 10px;
+        padding: 10px;
+        background: white;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .stat-item {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        flex: 1;
+        min-width: 120px;
+      }
+
+      .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #667eea;
+        display: block;
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 20px;
+        border: 1px solid #f5c6cb;
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        margin-top: 20px;
+      }
+
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 30px 20px;
+        }
+
+        h1 {
+          font-size: 2em;
+        }
+
+        .input-group {
+          flex-direction: column;
+        }
+
+        .stats {
+          flex-direction: column;
+        }
+      }
+    </style>
+    <% if (env === 'development') { %>
+    <style>
+      .dev-info {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: #ff6b6b;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+    </style>
+    <% } %>
+  </head>
+  <body>
+    <% if (env === 'development') { %>
+    <div class="dev-info">Development Mode</div>
+    <% } %>
+
+    <div class="container">
+      <h1><%= pageTitle %></h1>
+      <p class="subtitle"><%= subtitle %></p>
+
+      <div class="input-section">
+        <div class="input-group">
+          <input
+            type="url"
+            id="urlInput"
+            placeholder="請輸入要縮短的網址 (例: https://www.example.com)"
+            required
+          />
+          <button class="btn" id="shortenBtn" onclick="shortenUrl()">
+            縮短網址
+          </button>
+        </div>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>正在處理中...</p>
+      </div>
+
+      <div class="error" id="error" style="display: none"></div>
+
+      <div class="result-section" id="resultSection">
+        <div class="result-item">
+          <label class="result-label">原始網址：</label>
+          <div class="result-value">
+            <span id="originalUrl"></span>
+          </div>
+        </div>
+
+        <div class="result-item">
+          <label class="result-label">短網址：</label>
+          <div class="result-value">
+            <a
+              id="shortUrl"
+              href=""
+              target="_blank"
+              style="color: #667eea; text-decoration: none"
+            ></a>
+            <button class="copy-btn" onclick="copyToClipboard('shortUrl')">
+              複製
+            </button>
+          </div>
+        </div>
+
+        <div class="qr-code">
+          <img id="qrCodeImage" alt="QR Code" style="display: none" />
+          <p style="margin-top: 10px; color: #666; font-size: 14px">
+            掃描 QR Code 快速訪問短網址
+          </p>
+        </div>
+
+        <div class="stats">
+          <div class="stat-item">
+            <span class="stat-value" id="clickCount">0</span>
+            <div class="stat-label">點擊次數</div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="createdDate">-</span>
+            <div class="stat-label">建立時間</div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="isNewFlag">-</span>
+            <div class="stat-label">狀態</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
