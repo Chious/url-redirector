@@ -4,6 +4,7 @@ import prisma from "../utils/prisma";
 export interface CreateUrlData {
   originalUrl: string;
   shortCode: string;
+  clickCount?: number;
 }
 
 export interface UrlWithId extends PrismaUrl {
@@ -110,6 +111,52 @@ export class UrlModel {
     await prisma.url.delete({
       where: { shortCode },
     });
+  }
+
+  /**
+   * Increment click count for a URL
+   */
+  static async incrementClickCount(
+    shortCode: string
+  ): Promise<UrlWithId | null> {
+    try {
+      const url = await prisma.url.update({
+        where: { shortCode },
+        data: {
+          clickCount: {
+            increment: 1,
+          },
+          updatedAt: new Date(),
+        },
+      });
+      return url;
+    } catch (error) {
+      console.error("Error incrementing click count:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get URL statistics by short code
+   */
+  static async getUrlStats(shortCode: string): Promise<{
+    originalUrl: string;
+    shortCode: string;
+    clickCount: number;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null> {
+    const url = await prisma.url.findUnique({
+      where: { shortCode },
+      select: {
+        originalUrl: true,
+        shortCode: true,
+        clickCount: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    return url;
   }
 }
 

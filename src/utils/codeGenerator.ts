@@ -1,3 +1,4 @@
+import { nanoid, customAlphabet } from "nanoid";
 import { randomBytes } from "crypto";
 
 /**
@@ -6,8 +7,11 @@ import { randomBytes } from "crypto";
  */
 const CHARACTERS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
+// Create a custom nanoid function with our character set
+const customNanoid = customAlphabet(CHARACTERS, 6);
+
 /**
- * Generate a random short code
+ * Generate a random short code using nanoid
  * @param length - Length of the short code (default: 6)
  * @returns A random short code string
  */
@@ -16,15 +20,14 @@ export function generateShortCode(length: number = 6): string {
     throw new Error("Length must be between 1 and 20 characters");
   }
 
-  const randomBytesArray = randomBytes(length);
-  let result = "";
-
-  for (let i = 0; i < length; i++) {
-    const randomIndex = (randomBytesArray[i] || 0) % CHARACTERS.length;
-    result += CHARACTERS.charAt(randomIndex);
+  // Use custom alphabet nanoid for better uniqueness and randomness
+  if (length === 6) {
+    return customNanoid();
+  } else {
+    // For custom lengths, create a new alphabet function
+    const customLength = customAlphabet(CHARACTERS, length);
+    return customLength();
   }
-
-  return result;
 }
 
 /**

@@ -6,6 +6,15 @@ export interface ShortenUrlResult {
   originalUrl: string;
   shortCode: string;
   isNew: boolean;
+  qrCodeUrl: string;
+}
+
+export interface UrlStats {
+  originalUrl: string;
+  shortCode: string;
+  clickCount: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class UrlService {
@@ -31,6 +40,7 @@ export class UrlService {
           originalUrl: existingUrl.originalUrl,
           shortCode: existingUrl.shortCode,
           isNew: false,
+          qrCodeUrl: `${this.baseUrl}/api/qr/${existingUrl.shortCode}`,
         };
       }
 
@@ -48,6 +58,7 @@ export class UrlService {
         originalUrl: newUrl.originalUrl,
         shortCode: newUrl.shortCode,
         isNew: true,
+        qrCodeUrl: `${this.baseUrl}/api/qr/${newUrl.shortCode}`,
       };
     } catch (error) {
       console.error("Error shortening URL:", error);
@@ -56,7 +67,7 @@ export class UrlService {
   }
 
   /**
-   * Get the original URL from a short code
+   * Get the original URL from a short code and increment click count
    */
   async getOriginalUrl(shortCode: string): Promise<string | null> {
     try {
@@ -66,8 +77,8 @@ export class UrlService {
         return null;
       }
 
-      // Optionally update the last accessed time
-      await UrlModel.touch(url.id);
+      // Increment click count and update last accessed time
+      await UrlModel.incrementClickCount(shortCode);
 
       return url.originalUrl;
     } catch (error) {
@@ -138,6 +149,19 @@ export class UrlService {
     } while (await UrlModel.existsByShortCode(shortCode));
 
     return shortCode;
+  }
+
+  /**
+   * Get URL statistics by short code
+   */
+  async getUrlStats(shortCode: string): Promise<UrlStats | null> {
+    try {
+      const stats = await UrlModel.getUrlStats(shortCode);
+      return stats;
+    } catch (error) {
+      console.error("Error getting URL stats:", error);
+      throw new Error("Failed to get URL statistics");
+    }
   }
 }
 
