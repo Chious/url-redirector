@@ -1,15 +1,12 @@
 import express, { Request, Response } from "express";
 import urlRoutes from "./urls";
 import testRoutes from "./test";
+import urlController from "../controllers/urlController";
 import { ApiInfoResponse } from "../types";
 
 const router = express.Router();
 
-// Mount routes
-router.use("/", urlRoutes);
-router.use("/", testRoutes);
-
-// API info endpoint
+// API info endpoint (must be before /api mount)
 router.get("/api", (req: Request, res: Response<ApiInfoResponse>) => {
   res.json({
     name: "URL Redirector API",
@@ -26,5 +23,16 @@ router.get("/api", (req: Request, res: Response<ApiInfoResponse>) => {
     docs: "/api-docs",
   });
 });
+
+// Mount API routes
+router.use("/api", urlRoutes);
+router.use("/", testRoutes);
+
+// Short code redirect route (this should be last to catch all remaining routes)
+router.get(
+  "/:shortCode",
+  urlController.shortCodeValidation,
+  urlController.redirectUrl
+);
 
 export default router;
