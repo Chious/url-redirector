@@ -28,15 +28,88 @@
       {
         "id": 3,
         "title": "Implement URL Shortening Service",
-        "description": "Create a service to generate unique short codes for URLs and handle the mapping logic",
-        "details": "1. Create a utility for generating random short codes\n2. Implement the URL shortening service with logic to check for existing URLs\n\n```javascript\n// utils/codeGenerator.js\nconst crypto = require('crypto');\n\nconst generateShortCode = (length = 6) => {\n  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';\n  const randomBytes = crypto.randomBytes(length);\n  let result = '';\n  \n  for (let i = 0; i < length; i++) {\n    const randomIndex = randomBytes[i] % characters.length;\n    result += characters.charAt(randomIndex);\n  }\n  \n  return result;\n};\n\nmodule.exports = { generateShortCode };\n```\n\n```javascript\n// services/urlService.js\nconst Url = require('../models/url');\nconst { generateShortCode } = require('../utils/codeGenerator');\n\nclass UrlService {\n  constructor(baseUrl) {\n    this.baseUrl = baseUrl; // e.g., 'http://short.ly'\n  }\n\n  async shortenUrl(originalUrl) {\n    // Check if URL already exists in database\n    const existingUrl = await Url.findOne({ originalUrl });\n    \n    if (existingUrl) {\n      return {\n        shortUrl: `${this.baseUrl}/${existingUrl.shortCode}`,\n        originalUrl: existingUrl.originalUrl\n      };\n    }\n    \n    // Generate a new short code\n    let shortCode;\n    let isUnique = false;\n    \n    // Ensure the generated code is unique\n    while (!isUnique) {\n      shortCode = generateShortCode();\n      const existingCode = await Url.findOne({ shortCode });\n      if (!existingCode) {\n        isUnique = true;\n      }\n    }\n    \n    // Create new URL mapping\n    const newUrl = new Url({\n      originalUrl,\n      shortCode\n    });\n    \n    await newUrl.save();\n    \n    return {\n      shortUrl: `${this.baseUrl}/${shortCode}`,\n      originalUrl\n    };\n  }\n\n  async getOriginalUrl(shortCode) {\n    const url = await Url.findOne({ shortCode });\n    if (!url) {\n      return null;\n    }\n    return url.originalUrl;\n  }\n}\n\nmodule.exports = UrlService;\n```",
-        "testStrategy": "1. Unit test the short code generator for randomness and length\n2. Test URL shortening with new URLs and existing URLs\n3. Verify that duplicate short codes are not generated\n4. Test retrieval of original URLs from short codes\n5. Test handling of non-existent short codes",
-        "priority": "high",
+        "description": "Create a service to generate unique short codes for URLs and handle the mapping logic with nanoid, and prepare for QR code and click tracking integration",
+        "status": "done",
         "dependencies": [
           2
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "1. Implement nanoid for generating unique short codes\n2. Implement the URL shortening service with logic to check for existing URLs\n3. Prepare for QR code generation integration\n4. Add structure for click tracking functionality\n\n```javascript\n// utils/codeGenerator.js\nconst { nanoid } = require('nanoid');\n\nconst generateShortCode = (length = 6) => {\n  return nanoid(length);\n};\n\nmodule.exports = { generateShortCode };\n```\n\n```javascript\n// services/urlService.js\nconst Url = require('../models/url');\nconst { generateShortCode } = require('../utils/codeGenerator');\n\nclass UrlService {\n  constructor(baseUrl) {\n    this.baseUrl = baseUrl; // e.g., 'http://short.ly'\n  }\n\n  async shortenUrl(originalUrl) {\n    // Check if URL already exists in database\n    const existingUrl = await Url.findOne({ originalUrl });\n    \n    if (existingUrl) {\n      return {\n        shortUrl: `${this.baseUrl}/${existingUrl.shortCode}`,\n        originalUrl: existingUrl.originalUrl,\n        qrCodeUrl: `${this.baseUrl}/qr/${existingUrl.shortCode}` // Prepare for QR code feature\n      };\n    }\n    \n    // Generate a new short code using nanoid\n    let shortCode;\n    let isUnique = false;\n    \n    // Ensure the generated code is unique\n    while (!isUnique) {\n      shortCode = generateShortCode();\n      const existingCode = await Url.findOne({ shortCode });\n      if (!existingCode) {\n        isUnique = true;\n      }\n    }\n    \n    // Create new URL mapping with click tracking structure\n    const newUrl = new Url({\n      originalUrl,\n      shortCode,\n      clicks: 0,\n      clickHistory: []\n    });\n    \n    await newUrl.save();\n    \n    return {\n      shortUrl: `${this.baseUrl}/${shortCode}`,\n      originalUrl,\n      qrCodeUrl: `${this.baseUrl}/qr/${shortCode}` // Prepare for QR code feature\n    };\n  }\n\n  async getOriginalUrl(shortCode) {\n    const url = await Url.findOne({ shortCode });\n    if (!url) {\n      return null;\n    }\n    \n    // Update click statistics\n    url.clicks = (url.clicks || 0) + 1;\n    url.clickHistory.push({\n      timestamp: new Date(),\n      // Can be extended with IP, user agent, etc.\n    });\n    await url.save();\n    \n    return url.originalUrl;\n  }\n  \n  async getUrlStats(shortCode) {\n    const url = await Url.findOne({ shortCode });\n    if (!url) {\n      return null;\n    }\n    \n    return {\n      originalUrl: url.originalUrl,\n      shortCode: url.shortCode,\n      clicks: url.clicks || 0,\n      clickHistory: url.clickHistory || []\n    };\n  }\n}\n\nmodule.exports = UrlService;\n```",
+        "testStrategy": "1. Unit test the nanoid short code generator for uniqueness, randomness and length\n2. Test URL shortening with new URLs and existing URLs\n3. Verify that duplicate short codes are not generated\n4. Test retrieval of original URLs from short codes\n5. Test handling of non-existent short codes\n6. Test click tracking functionality\n7. Verify QR code URL generation\n8. Test URL statistics retrieval",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install nanoid package",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Update code generator to use nanoid",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Update URL model to include click tracking fields",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Add QR code URL generation to URL service",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement click tracking in getOriginalUrl method",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Create getUrlStats method for retrieving URL statistics",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Write tests for nanoid code generator",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 8,
+            "title": "Write tests for click tracking functionality",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 4,
@@ -158,11 +231,67 @@
         ],
         "status": "pending",
         "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Implement QR Code Generation Service for Short URLs",
+        "description": "Develop a service layer that generates QR codes for short URLs, supporting multiple response formats (Base64-encoded string and image file), integrating the qrcode package.",
+        "details": "1. Install the 'qrcode' npm package as a project dependency.\n2. Create a dedicated service module (e.g., services/qrCodeService.js) that exposes functions to generate QR codes for given short URLs.\n3. Implement methods to generate QR codes in at least two formats:\n   - Base64-encoded PNG (using QRCode.toDataURL)\n   - Image file (using QRCode.toFile or by returning a Buffer for direct HTTP response)\n4. Ensure the service accepts a short URL string and returns the QR code in the requested format, handling errors gracefully.\n5. Integrate the service with the existing URL shortening logic so that a QR code can be generated for any valid short URL.\n6. Follow best practices for asynchronous code and error handling in Node.js.\n7. Consider adding options for QR code customization (e.g., size, margin) via parameters.\n8. Document the service API and usage with clear examples for both formats.\n9. Ensure the service is testable and modular, suitable for future extension (e.g., SVG support).\n\nExample (Base64):\n```javascript\nconst QRCode = require('qrcode');\n\nasync function generateQRCodeBase64(url) {\n  try {\n    return await QRCode.toDataURL(url, { type: 'image/png' });\n  } catch (err) {\n    throw new Error('QR code generation failed');\n  }\n}\n```\n\nExample (File):\n```javascript\nconst QRCode = require('qrcode');\n\nasync function generateQRCodeFile(url, filePath) {\n  try {\n    await QRCode.toFile(filePath, url, { type: 'png' });\n    return filePath;\n  } catch (err) {\n    throw new Error('QR code file generation failed');\n  }\n}\n```\n\nReference best practices:\n- Use async/await for all I/O operations.\n- Validate input URLs before generating QR codes.\n- Return meaningful error messages for invalid input or generation failures.\n- Structure the service for easy integration with controllers and future enhancements.\n",
+        "testStrategy": "1. Unit test the service methods with valid and invalid short URLs, verifying correct QR code generation in both Base64 and file formats.\n2. Test error handling by passing malformed or empty URLs.\n3. Verify that the generated QR codes, when scanned, resolve to the correct short URL.\n4. For file output, check that the image file is created, is a valid PNG, and is deleted/cleaned up as appropriate.\n5. For Base64 output, decode the string and verify it represents a valid PNG image.\n6. Test integration with the URL shortening service to ensure seamless QR code generation for new and existing short URLs.\n7. Perform performance tests to ensure QR code generation does not introduce significant latency.\n8. Review code for security (e.g., input validation, no arbitrary file writes).",
+        "status": "pending",
+        "dependencies": [
+          3,
+          8
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Develop Responsive Frontend Template (index.html) for URL Shortener",
+        "description": "Create a responsive index.html frontend that allows users to input a long URL, generate a short URL and QR code, display click statistics, and provide a copy-to-clipboard feature. Integrate with backend APIs using AJAX.",
+        "details": "1. Use a modern frontend stack (HTML5, CSS3 with Flexbox/Grid, and vanilla JavaScript or a lightweight framework like Vue.js/React if project scope allows) to ensure maintainability and responsiveness.\n2. Design a clean, mobile-first UI with clear input fields for the original URL, a button to trigger shortening, and sections to display the resulting short URL, QR code image (fetched from backend), and click count.\n3. Implement AJAX (using fetch API or axios) to interact with backend endpoints for URL shortening, QR code retrieval, and click statistics. Ensure error handling and loading states are user-friendly.\n4. Integrate a copy-to-clipboard button for the generated short URL using the Clipboard API for seamless UX.\n5. Ensure the QR code is dynamically rendered after successful shortening by fetching the image (Base64 or file URL) from the backend QR code service.\n6. Display real-time click statistics by polling or updating after each shortening event.\n7. Follow accessibility best practices (semantic HTML, ARIA labels, sufficient color contrast).\n8. Use CSS media queries for responsive design, ensuring usability on both desktop and mobile devices.\n9. Structure code for easy extension (e.g., modular JS, separate CSS, reusable components if using a framework).",
+        "testStrategy": "1. Manually test the UI on various devices and screen sizes to verify responsive layout and usability.\n2. Test the full workflow: input a valid URL, receive and display the short URL and QR code, and verify the copy-to-clipboard function works across browsers.\n3. Simulate invalid input and network/API errors to confirm user-friendly error handling.\n4. Verify that click statistics update correctly after each shortening and on page reload.\n5. Use browser dev tools to ensure AJAX requests are correctly formed and responses are handled as expected.\n6. Run accessibility audits (e.g., Lighthouse, axe) to ensure compliance with accessibility standards.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          13
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Implement Click Count Tracking and Statistics API",
+        "description": "Add a clickCount field to the URL schema, increment it on each redirect, and provide an API endpoint for querying click statistics.",
+        "details": "1. Update the MongoDB URL schema to include a new field: clickCount (Number, default: 0).\n2. In the URL redirection controller, increment the clickCount atomically using MongoDB's $inc operator each time a short URL is accessed. This ensures accurate counting even under concurrent requests.\n3. Implement a RESTful API endpoint (e.g., GET /api/url/:shortCode/stats) that returns the clickCount for a given shortCode. Use Mongoose's lean queries and $project to return only necessary fields for performance.\n4. Ensure the clickCount field is indexed if frequent queries are expected, to optimize read performance.\n5. Follow best practices for schema evolution: migrate existing documents to include clickCount with a default value if needed.\n6. Document the API response format for frontend integration, ensuring it is concise and includes only required statistics.\n7. Consider rate-limiting or caching for the stats endpoint if high query volume is anticipated.",
+        "testStrategy": "1. Unit test schema changes: verify clickCount is initialized and increments correctly on redirect.\n2. Simulate concurrent redirects to ensure atomicity and accuracy of clickCount updates.\n3. Test the statistics API endpoint with valid and invalid shortCodes, verifying correct clickCount values and error handling.\n4. Integration test: create a short URL, perform multiple redirects, and confirm the clickCount matches the number of accesses.\n5. Performance test the stats endpoint under load to ensure responsiveness and correctness.",
+        "status": "pending",
+        "dependencies": [
+          2,
+          5
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Update Short Code Generator to Use nanoid",
+        "description": "Refactor the existing short code generator to use the nanoid package, ensuring generated codes are unique, random, and URL-friendly.",
+        "details": "1. Install the nanoid package as a project dependency using 'npm install nanoid'.\n2. Refactor the codeGenerator.ts utility to replace any custom or crypto-based short code generation logic with nanoid. Use 'import { nanoid } from \"nanoid\"' for ES modules or 'const { nanoid } = require(\"nanoid\")' for CommonJS.\n3. Configure nanoid to generate codes of appropriate length (typically 6-8 characters for URL shorteners) and ensure the alphabet is URL-friendly (default nanoid alphabet is suitable).\n4. If custom requirements exist for code readability, consider using nanoid's customAlphabet function to restrict ambiguous characters.\n5. Ensure the generator is used consistently throughout the URL shortening service, updating any references in service or controller layers as needed.\n6. Remove any legacy code or dependencies related to previous code generation methods.\n7. Document the change and update any relevant developer documentation or code comments to reflect the use of nanoid.\n\nBest practices:\n- nanoid uses a cryptographically secure random number generator for uniqueness and randomness[1][4].\n- The default alphabet is URL-safe and readable[4].\n- No need to install @types/nanoid, as nanoid provides its own TypeScript definitions[5].",
+        "testStrategy": "1. Unit test the codeGenerator.ts to verify that nanoid generates codes of the expected length and character set.\n2. Test for uniqueness by generating a large batch of codes and checking for duplicates.\n3. Validate that all generated codes are URL-safe and readable (no ambiguous or unsafe characters).\n4. Regression test the URL shortening workflow to ensure short codes are generated and mapped correctly.\n5. Review and test any integration points where the generator is used to confirm consistent behavior across the application.",
+        "status": "pending",
+        "dependencies": [
+          1,
+          3
+        ],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-08-18T15:50:41.591Z",
-      "updated": "2025-08-20T01:52:28.509Z",
+      "updated": "2025-08-20T13:51:38.615Z",
       "description": "Tasks for master context"
     }
   }

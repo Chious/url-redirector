@@ -1,0 +1,219 @@
+# 縮網址產生器 - 完整版 PRD
+
+## 專案概述
+
+縮網址產生器是一個提供長網址 → 短網址轉換服務的系統，並包含 QR Code 產生功能和前端介面。
+使用者可以透過網頁介面或 API 輸入原始網址，系統會產生唯一的短網址和對應的 QR Code，並提供點擊統計功能。
+
+技術架構：Express.js + MongoDB + Docker Compose，使用 nanoid 產生短碼，並提供 Swagger API 文件。
+
+## 核心功能
+
+### 1. 縮網址功能
+- 輸入長網址 → 回傳對應的短網址
+- 使用 nanoid 產生短網址，確保唯一性和隨機性
+- 短網址具備可讀性且隨機
+
+### 2. QR Code 產生功能  
+- 為每個短網址自動產生 QR Code
+- 支援多種回傳格式：Base64 編碼或圖片檔案
+- QR Code 可透過 API 或前端介面取得
+
+### 3. 短網址跳轉與統計
+- 使用者訪問短網址 → 自動導向至原始網址
+- 記錄並追蹤每次點擊，更新點擊次數
+- 提供點擊統計查詢功能
+
+### 4. 前端網頁介面
+- 提供 index.html 樣板頁面
+- 使用者可輸入原始網址
+- 顯示產生的短網址和 QR Code
+- 顯示短網址的點擊次數統計
+- 響應式設計，支援行動裝置
+
+### 5. RESTful API 服務
+- 建立短網址 API
+- 取得原始網址 API  
+- QR Code 產生 API (支援不同格式)
+- 統計資訊查詢 API
+- 健康檢查 API
+
+### 6. 資料儲存與管理
+- 使用 MongoDB 儲存短網址對應關係
+- 儲存點擊統計資訊
+- 包含建立時間、更新時間等 metadata
+
+## API 規格
+
+### 建立短網址
+- **Endpoint**: `POST /api/shorten`
+- **Request**: `{"url": "https://example.com/article/12345"}`
+- **Response**: `{"shortUrl": "http://short.ly/AbCdE1", "originalUrl": "https://example.com/article/12345", "qrCode": "data:image/png;base64,..."}`
+
+### QR Code 產生
+- **Endpoint**: `GET /api/qr/:shortCode`
+- **Query Params**: `format=base64|png`
+- **Response**: QR Code 圖片或 Base64 資料
+
+### 取得統計資訊
+- **Endpoint**: `GET /api/info/:shortCode`  
+- **Response**: `{"shortUrl": "...", "originalUrl": "...", "clickCount": 42, "createdAt": "...", "qrCode": "..."}`
+
+### 短網址跳轉
+- **Endpoint**: `GET /:shortCode`
+- **Response**: 302 Redirect 到原始網址 (同時更新點擊次數)
+
+### 健康檢查
+- **Endpoint**: `GET /api/health`
+- **Response**: `{"status": "ok", "timestamp": "2025-01-18T14:32:00Z"}`
+
+## 資料結構
+
+### MongoDB Collection: `urls`
+```json
+{
+  "_id": "ObjectId",
+  "originalUrl": "https://example.com/article/12345",
+  "shortCode": "AbCdE1", 
+  "clickCount": 0,
+  "createdAt": "2025-01-18T14:32:00Z",
+  "updatedAt": "2025-01-18T14:32:00Z"
+}
+```
+
+## 技術需求
+
+### 後端技術
+- Express.js (主要框架)
+- MongoDB (資料庫) 
+- nanoid (短碼產生)
+- qrcode 或類似套件 (QR Code 產生)
+- Swagger UI (API 文件)
+
+### 前端技術  
+- HTML/CSS/JavaScript
+- 響應式設計
+- AJAX 呼叫後端 API
+
+### 開發環境
+- Docker Compose
+- Prisma (可選，目前已在使用)
+- TypeScript
+
+## 系統架構
+
+### 檔案結構
+```
+src/
+├── controllers/          # API 控制器
+├── services/            # 業務邏輯服務
+│   ├── urlService.ts    # 短網址邏輯
+│   └── qrService.ts     # QR Code 服務
+├── routes/              # API 路由
+├── models/              # 資料模型
+├── middleware/          # 中介軟體
+├── utils/               # 工具函數
+│   └── codeGenerator.ts # nanoid 短碼產生
+└── public/              # 靜態檔案
+    └── index.html       # 前端介面
+```
+
+### 服務架構
+- API Server (Express.js)
+- MongoDB (資料儲存)  
+- QR Code 服務
+- 前端介面
+- Docker Compose 管理
+
+## 功能細節
+
+### 短碼產生規則
+- 使用 nanoid 套件
+- 長度：6-8 字元
+- 字符集：URL 安全字符 (A-Z, a-z, 0-9, -, _)
+- 確保唯一性檢查
+
+### QR Code 功能
+- 支援 PNG 圖片格式
+- 支援 Base64 編碼格式
+- 可設定圖片大小 (預設 200x200px)
+- 錯誤修正等級：Medium
+
+### 前端介面需求
+- 網址輸入框與提交按鈕
+- 短網址顯示區域
+- QR Code 圖片顯示
+- 點擊次數顯示
+- 複製短網址功能
+- 錯誤訊息顯示
+
+### 統計功能
+- 即時點擊次數追蹤
+- 建立時間記錄
+- 最後更新時間
+- 可擴充：來源 IP、裝置資訊等
+
+## 非功能需求
+
+### 效能要求
+- 每秒處理 ≥ 100 requests
+- 短網址查詢延遲 < 100ms
+- QR Code 產生 < 200ms
+
+### 安全性
+- 輸入網址驗證與過濾
+- XSS 防護
+- SQL injection 防護
+- Rate limiting (可選)
+
+### 可用性
+- API uptime ≥ 99.9%
+- Docker 環境快速部署
+- 錯誤處理與回覆機制
+
+## 開發里程碑
+
+### Phase 1 - 基礎功能
+- 短網址產生與跳轉
+- MongoDB 整合
+- 基礎 API 端點
+- nanoid 短碼產生器
+
+### Phase 2 - QR Code 功能
+- QR Code 產生服務
+- 多格式支援 (Base64/PNG)
+- QR Code API 端點
+
+### Phase 3 - 前端介面
+- HTML 樣板建立
+- CSS 樣式設計
+- JavaScript 互動功能
+- 響應式設計
+
+### Phase 4 - 統計功能
+- 點擊次數追蹤
+- 統計 API 端點
+- 前端統計顯示
+
+### Phase 5 - 完善與優化  
+- Swagger 文件
+- 錯誤處理
+- 效能優化
+- 部署準備
+
+## 測試策略
+
+### API 測試
+- 單元測試 (Jest)
+- 整合測試
+- API 端點測試
+
+### 前端測試
+- 瀏覽器相容性測試
+- 響應式設計測試
+- 使用者互動測試
+
+### 系統測試
+- Docker 環境測試
+- 資料庫連線測試
+- 效能壓力測試
