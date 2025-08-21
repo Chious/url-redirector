@@ -1,6 +1,7 @@
 import swaggerJsdoc from "swagger-jsdoc";
 import { serve, setup } from "swagger-ui-express";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
+import EnvironmentConfig from "./environment";
 
 interface SwaggerOptions {
   definition: {
@@ -34,7 +35,92 @@ interface SwaggerOptions {
   apis: string[];
 }
 
+/**
+ * 基本認證中介軟體 (用於 Swagger 生產環境)
+ */
+const basicAuthMiddleware = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const isProduction = EnvironmentConfig.get("NODE_ENV") === "production";
+  const swaggerEnabled = EnvironmentConfig.getBoolean("SWAGGER_ENABLED", true);
+
+  // 開發環境或未啟用 Swagger 時跳過認證
+  if (!isProduction || !swaggerEnabled) {
+    return next();
+  }
+
+  const auth = req.headers.authorization;
+
+  if (!auth || !auth.startsWith("Basic ")) {
+    res.setHeader(
+      "WWW-Authenticate",
+      'Basic realm="Swagger API Documentation"'
+    );
+    res.status(401).json({
+      error: "Unauthorized",
+      message: "請提供有效的認證資訊以存取 API 文件",
+    });
+    return;
+  }
+
+  try {
+    // 解碼 Basic Auth
+    const base64Credentials = auth.split(" ")[1];
+    if (!base64Credentials) {
+      throw new Error("Invalid authorization header format");
+    }
+
+    const credentials = Buffer.from(base64Credentials, "base64").toString(
+      "utf-8"
+    );
+    const [username, password] = credentials.split(":");
+
+    // 從環境變數獲取認證資訊
+    const validUsername = EnvironmentConfig.get(
+      "ME_CONFIG_BASICAUTH_USERNAME",
+      "admin"
+    );
+    const validPassword = EnvironmentConfig.get(
+      "ME_CONFIG_BASICAUTH_PASSWORD",
+      "admin"
+    );
+
+    if (username === validUsername && password === validPassword) {
+      next();
+    } else {
+      res.setHeader(
+        "WWW-Authenticate",
+        'Basic realm="Swagger API Documentation"'
+      );
+      res.status(401).json({
+        error: "Unauthorized",
+        message: "帳號或密碼錯誤",
+      });
+    }
+  } catch (error) {
+    res.setHeader(
+      "WWW-Authenticate",
+      'Basic realm="Swagger API Documentation"'
+    );
+    res.status(401).json({
+      error: "Unauthorized",
+      message: "認證格式錯誤",
+    });
+  }
+};
+
 export const initSwagger = (app: Express): void => {
+  // 檢查是否啟用 Swagger
+  const swaggerEnabled = EnvironmentConfig.getBoolean("SWAGGER_ENABLED", true);
+  const isProduction = EnvironmentConfig.get("NODE_ENV") === "production";
+
+  if (!swaggerEnabled) {
+    console.log("🚫 Swagger UI is disabled");
+    return;
+  }
+
   const options: SwaggerOptions = {
     definition: {
       openapi: "3.0.0",
@@ -77,7 +163,7 @@ export const initSwagger = (app: Express): void => {
           description: "開發環境",
         },
         {
-          url: "https://your-domain.com",
+          url: EnvironmentConfig.get("BASE_URL", "https://your-domain.com"),
           description: "生產環境",
         },
       ],
@@ -214,7 +300,41 @@ export const initSwagger = (app: Express): void => {
 
   const specs = swaggerJsdoc(options);
 
-  app.use("/api-docs", serve, setup(specs));
+  // 應用基本認證中介軟體到 Swagger 路由
+  app.use(
+    "/api-docs",
+    basicAuthMiddleware,
+    serve,
+    setup(specs, {
+      customCss: `
+      .swagger-ui .topbar { 
+        background-color: #2c3e50; 
+      }
+      .swagger-ui .topbar .download-url-wrapper { 
+        display: none; 
+      }
+    `,
+      customSiteTitle: "URL Redirector API Documentation",
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    })
+  );
+
+  if (isProduction) {
+    console.log("🔒 Swagger UI enabled with Basic Authentication");
+    console.log(
+      `📚 API Documentation: ${EnvironmentConfig.get(
+        "BASE_URL",
+        "https://your-domain.com"
+      )}/api-docs`
+    );
+  } else {
+    console.log(
+      "📚 Swagger UI enabled (development mode - no authentication required)"
+    );
+    console.log("🔗 API Documentation: http://localhost:3000/api-docs");
+  }
 };
 
 export default initSwagger;
