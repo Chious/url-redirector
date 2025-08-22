@@ -2,6 +2,8 @@ import swaggerJsdoc from "swagger-jsdoc";
 import { serve, setup } from "swagger-ui-express";
 import { Express, Request, Response, NextFunction } from "express";
 import EnvironmentConfig from "./environment";
+import fs from "fs";
+import path from "path";
 
 interface SwaggerOptions {
   definition: {
@@ -120,6 +122,45 @@ export const initSwagger = (app: Express): void => {
     console.log("🚫 Swagger UI is disabled");
     return;
   }
+
+  // 根據環境決定 API 檔案路徑
+  const getApiPaths = (): string[] => {
+    const cwd = process.cwd();
+
+    if (isProduction) {
+      // 檢查 dist 目錄是否存在
+      const distPath = path.join(cwd, "dist");
+      const distExists = fs.existsSync(distPath);
+
+      console.log(`🔍 Checking production paths:`, {
+        cwd,
+        distPath,
+        distExists,
+        distRoutes: fs.existsSync(path.join(cwd, "dist/routes")),
+        srcExists: fs.existsSync(path.join(cwd, "src")),
+      });
+
+      if (distExists) {
+        // 生產環境：使用編譯後的檔案
+        return [
+          path.join(cwd, "dist/routes/*.js"),
+          path.join(cwd, "dist/server.js"),
+        ];
+      } else {
+        // 回退到原始檔案（可能在某些部署環境中 dist 目錄結構不同）
+        return [
+          path.join(cwd, "src/routes/*.ts"),
+          path.join(cwd, "src/server.ts"),
+        ];
+      }
+    } else {
+      // 開發環境：使用 TypeScript 檔案
+      return [
+        path.join(cwd, "src/routes/*.ts"),
+        path.join(cwd, "src/server.ts"),
+      ];
+    }
+  };
 
   const options: SwaggerOptions = {
     definition: {
@@ -295,10 +336,44 @@ export const initSwagger = (app: Express): void => {
         },
       },
     },
-    apis: ["src/routes/*.ts", "src/server.ts"],
+    apis: getApiPaths(),
   };
 
   const specs = swaggerJsdoc(options);
+
+  // 調試資訊：檢查生成的 specs
+  const specPaths = (specs as any).paths || {};
+  const specComponents = (specs as any).components?.schemas || {};
+
+  console.log("🔍 Swagger specs generated:", {
+    pathsCount: Object.keys(specPaths).length,
+    componentsCount: Object.keys(specComponents).length,
+    isProduction,
+    apiPaths: getApiPaths(),
+  });
+
+  // 如果沒有找到任何路徑，記錄警告
+  if (!specPaths || Object.keys(specPaths).length === 0) {
+    console.warn(
+      "⚠️  No API paths found in Swagger specs. This might indicate an issue with file paths."
+    );
+    console.warn("📁 Available paths in current working directory:");
+    try {
+      const cwd = process.cwd();
+      console.warn("   - src exists:", fs.existsSync(path.join(cwd, "src")));
+      console.warn("   - dist exists:", fs.existsSync(path.join(cwd, "dist")));
+      console.warn(
+        "   - src/routes exists:",
+        fs.existsSync(path.join(cwd, "src/routes"))
+      );
+      console.warn(
+        "   - dist/routes exists:",
+        fs.existsSync(path.join(cwd, "dist/routes"))
+      );
+    } catch (err) {
+      console.warn("   Error checking paths:", err);
+    }
+  }
 
   // 應用基本認證中介軟體到 Swagger 路由
   app.use(
